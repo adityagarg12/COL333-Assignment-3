@@ -27,10 +27,10 @@ private:
     vector<Point> starts, ends, popular;
     map<int, bool> assignment;
     map<vector<int>, int> var_map;
+    int var_counter;
 
     int get_var(const vector<int>& key) {
         if (var_map.find(key) == var_map.end()) {
-            static int var_counter = 1;
             var_map[key] = var_counter++;
         }
         return var_map[key];
@@ -142,22 +142,62 @@ private:
     }
 
     void reconstruct_var_mapping() {
-        int var_counter = 1;
-
-        // Cell variables
+        var_map.clear();
+        var_counter = 1; // Reset counter to match sat_solver
+        
+        // Mimic the exact same variable creation order as sat_solver.cpp
+        // This follows the encode_metro_line() function for each metro line k
+        
         for (int k = 0; k < K; k++) {
+            Point start = starts[k];
+            Point end = ends[k];
+            
+            // Start and end cell variables (created first in sat_solver)
+            get_var({0, k, start.x, start.y});
+            get_var({0, k, end.x, end.y});
+            
+            vector<vector<Point>> valid_paths = generate_valid_paths(start, end, J);
+            
+            if (valid_paths.empty()) {
+                continue; // Skip if no valid paths (matches sat_solver behavior)
+            }
+            
+            // Path variables (created in the path loop)
+            for (int i = 0; i < (int)valid_paths.size(); i++) {
+                get_var({1, k, i}); // path[k][i]
+                
+                // Cell variables for each point in this path
+                for (const Point& p : valid_paths[i]) {
+                    get_var({0, k, p.x, p.y});
+                }
+            }
+            
+            // Additional cell variables created in the consistency check loop
             for (int x = 0; x < N; x++) {
                 for (int y = 0; y < M; y++) {
-                    var_map[{0, k, x, y}] = var_counter++;
+                    get_var({0, k, x, y}); // This ensures all cell variables are created
                 }
             }
         }
-
-        // Path variables
-        for (int k = 0; k < K; k++) {
-            vector<vector<Point>> valid_paths = generate_valid_paths(starts[k], ends[k], J);
-            for (int i = 0; i < (int)valid_paths.size(); i++) {
-                var_map[{1, k, i}] = var_counter++;
+        
+        // Variables for uniqueness constraints (created in encode_problem)
+        for (int x = 0; x < N; x++) {
+            for (int y = 0; y < M; y++) {
+                for (int k1 = 0; k1 < K; k1++) {
+                    get_var({0, k1, x, y});
+                    for (int k2 = k1 + 1; k2 < K; k2++) {
+                        get_var({0, k2, x, y});
+                    }
+                }
+            }
+        }
+        
+        // Variables for popular cells constraint (Scenario 2)
+        if (scenario == 2) {
+            for (const Point& p : popular) {
+                for (int k = 0; k < K; k++) {
+                    get_var({0, k, p.x, p.y});
+                }
             }
         }
     }
@@ -177,6 +217,8 @@ private:
     }
 
 public:
+    MetroSolutionDecoder() : var_counter(1) {}
+    
     void read_city_file(const string& filename) {
         ifstream file(filename);
         if (!file.is_open()) {
