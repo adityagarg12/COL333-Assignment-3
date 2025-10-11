@@ -9,13 +9,28 @@ LDFLAGS =
 # Source files
 SAT_SOLVER_SRC = sat_solver.cpp
 SOLUTION_DECODER_SRC = solution_decoder.cpp
+SAT_SOLVER_GPT_SRC = sat_solver_gpt.cpp
+SAT_SOLVER_GPT_BIN = sat_solver_gpt
+SOLUTION_DECODER_GPT_SRC = solution_decoder_gpt.cpp
+SOLUTION_DECODER_GPT_BIN = solution_decoder_gpt
+
 
 # Executable names
 SAT_SOLVER_BIN = sat_solver
 SOLUTION_DECODER_BIN = solution_decoder
 
 # Default target - build both executables
-all: $(SAT_SOLVER_BIN) $(SOLUTION_DECODER_BIN)
+all: $(SAT_SOLVER_BIN) $(SOLUTION_DECODER_BIN) $(SAT_SOLVER_GPT_BIN) $(SOLUTION_DECODER_GPT_BIN)
+
+# Build solution_decoder_gpt executable
+$(SOLUTION_DECODER_GPT_BIN): $(SOLUTION_DECODER_GPT_SRC)
+	$(CXX) $(CXXFLAGS) -o $@ $< $(LDFLAGS)
+
+
+# Build sat_solver_gpt executable
+$(SAT_SOLVER_GPT_BIN): $(SAT_SOLVER_GPT_SRC)
+	$(CXX) $(CXXFLAGS) -o $@ $< $(LDFLAGS)
+
 
 # Build sat_solver executable
 $(SAT_SOLVER_BIN): $(SAT_SOLVER_SRC)
@@ -27,7 +42,7 @@ $(SOLUTION_DECODER_BIN): $(SOLUTION_DECODER_SRC)
 
 # Clean built files
 clean:
-	rm -f $(SAT_SOLVER_BIN) $(SOLUTION_DECODER_BIN)
+	rm -f $(SAT_SOLVER_BIN) $(SOLUTION_DECODER_BIN) $(SAT_SOLVER_GPT_BIN) $(SOLUTION_DECODER_GPT_BIN)
 
 # Install (copy to /usr/local/bin - requires sudo)
 install: all

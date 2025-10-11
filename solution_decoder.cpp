@@ -43,13 +43,15 @@ private:
     vector<vector<Point>> generate_valid_paths(const Point& start, const Point& end, int max_turns) {
         vector<vector<Point>> valid_paths;
         queue<tuple<int, int, vector<Point>, int, int>> q;
-        set<tuple<int, int, int, int, int>> visited;
+        
+        // More permissive visited state - only prevent cycles and excessive exploration
+        map<tuple<int, int, int>, int> best_length; // (x, y, turns) -> shortest path length
 
         vector<Point> directions = {{1, 0}, {0, 1}, {-1, 0}, {0, -1}};
 
         q.push(make_tuple(start.x, start.y, vector<Point>{start}, 0, -1));
 
-        while (!q.empty() && valid_paths.size() < 100) {
+        while (!q.empty() && valid_paths.size() < 1000) { // Increased limit significantly
             auto [x, y, path, turns, last_dir] = q.front();
             q.pop();
 
@@ -58,9 +60,12 @@ private:
                 continue;
             }
 
-            auto state = make_tuple(x, y, turns, last_dir, (int)path.size());
-            if (visited.count(state)) continue;
-            visited.insert(state);
+            // Much more permissive pruning - only prevent very excessive exploration
+            auto key = make_tuple(x, y, turns);
+            if (best_length.count(key) && best_length[key] + 8 < (int)path.size()) {
+                continue; // Only skip if current path is MUCH longer
+            }
+            best_length[key] = min(best_length.count(key) ? best_length[key] : 999, (int)path.size());
 
             for (int d = 0; d < 4; d++) {
                 int nx = x + directions[d].x;
@@ -84,7 +89,9 @@ private:
 
                 if (new_turns > max_turns) continue;
 
-                if ((int)path.size() > manhattan_distance(start, end) + 2 * max_turns) continue;
+                // More permissive length heuristic 
+                int max_reasonable_length = manhattan_distance(start, end) + 4 * max_turns + 5;
+                if ((int)path.size() > max_reasonable_length) continue;
 
                 vector<Point> new_path = path;
                 new_path.push_back(Point(nx, ny));
