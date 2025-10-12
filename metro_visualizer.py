@@ -20,7 +20,9 @@ class MetroVisualizer:
         self.metro_endpoints = []
         self.metro_paths = []
         self.traced_paths = []
-        self.colors = ['#2563eb', '#dc2626', '#16a34a', '#ca8a04', '#9333ea', '#c2410c']
+        # Updated colors for better visibility and contrast
+        self.colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', 
+                       '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9', '#F8C471', '#82E0AA']
 
         self.parse_city_file(city_file)
         self.parse_metromap_file(metromap_file)
@@ -115,8 +117,8 @@ class MetroVisualizer:
 
     def create_visualization(self):
         """Create the interactive visualization"""
-        fig, ax = plt.subplots(1, 1, figsize=(12, 10))
-        plt.subplots_adjust(left=0.2)
+        fig, ax = plt.subplots(1, 1, figsize=(12, 8))
+        plt.subplots_adjust(bottom=0.1, top=0.9, left=0.1, right=0.9)
 
         # Set up the grid
         ax.set_xlim(-0.5, self.width - 0.5)
@@ -134,8 +136,9 @@ class MetroVisualizer:
         ax.set_yticks(range(self.height))
         ax.set_xlabel('X Coordinate', fontsize=12)
         ax.set_ylabel('Y Coordinate', fontsize=12)
-        ax.set_title(f'Metro Line Visualizer - {self.width}×{self.height} City Grid\n'
-                    f'Max Turns: {self.max_turns}, Lines: {self.num_lines}', fontsize=14, fontweight='bold')
+        ax.set_title(f'Metro Line Visualizer - {self.width}×{self.height} City Grid | '
+                    f'Max Turns: {self.max_turns} | Lines: {self.num_lines}', 
+                    fontsize=14, fontweight='bold')
 
         # Store line objects for toggling
         self.line_objects = []
@@ -143,73 +146,56 @@ class MetroVisualizer:
         self.end_objects = []
         self.station_objects = []
 
-        # Draw metro lines
+        # Draw metro lines with better visual separation
         for i, path in enumerate(self.traced_paths):
             color = self.colors[i % len(self.colors)]
 
-            # Draw the path
+            # Draw the path with slightly thicker lines for better visibility
             xs = [point[0] for point in path]
             ys = [point[1] for point in path]
-            line, = ax.plot(xs, ys, color=color, linewidth=3, alpha=0.8, 
-                           label=f'Metro Line {i+1}', marker='o', markersize=4)
+            line, = ax.plot(xs, ys, color=color, linewidth=4, alpha=0.9, 
+                           label=f'Metro Line {i+1}', marker='o', markersize=5)
             self.line_objects.append(line)
 
-            # Draw start point
-            start_marker = ax.scatter(path[0][0], path[0][1], s=150, c=color, 
-                                    marker='o', edgecolors='white', linewidths=2,
-                                    label=f'Line {i+1} Start' if i == 0 else "")
+            # Draw start point with distinctive styling
+            start_marker = ax.scatter(path[0][0], path[0][1], s=200, c=color, 
+                                    marker='o', edgecolors='black', linewidths=3,
+                                    label=f'Start' if i == 0 else "", zorder=5)
             self.start_objects.append(start_marker)
 
-            # Draw end point
-            end_marker = ax.scatter(path[-1][0], path[-1][1], s=150, c=color, 
-                                  marker='s', edgecolors='white', linewidths=2,
-                                  label=f'Line {i+1} End' if i == 0 else "")
+            # Draw end point with distinctive styling
+            end_marker = ax.scatter(path[-1][0], path[-1][1], s=200, c=color, 
+                                  marker='s', edgecolors='black', linewidths=3,
+                                  label=f'End' if i == 0 else "", zorder=5)
             self.end_objects.append(end_marker)
 
             # Store station objects for each line
-            stations = ax.scatter(xs[1:-1], ys[1:-1], s=50, c=color, 
-                                alpha=0.6, marker='o')
+            stations = ax.scatter(xs[1:-1], ys[1:-1], s=60, c=color, 
+                                alpha=0.8, marker='o', edgecolors='white', linewidths=1, zorder=3)
             self.station_objects.append(stations)
 
-        # Add legend
-        ax.legend(loc='upper left', bbox_to_anchor=(1.02, 1))
-
-        # Create checkboxes for toggling lines
-        checkbox_ax = plt.axes([0.02, 0.7, 0.15, 0.15])
-        labels = [f'Metro Line {i+1}' for i in range(len(self.traced_paths))]
-        visibility = [True] * len(self.traced_paths)
-        self.checkbox = CheckButtons(checkbox_ax, labels, visibility)
-
-        # Set checkbox colors
-        for i, rect in enumerate(self.checkbox.rectangles):
-            rect.set_facecolor(self.colors[i % len(self.colors)])
-            rect.set_alpha(0.3)
-
-        # Connect checkbox callback
-        self.checkbox.on_clicked(self.toggle_line)
-
-        # Add information text
-        info_text = self.get_info_text()
-        plt.figtext(0.02, 0.45, info_text, fontsize=10, verticalalignment='top',
-                   bbox=dict(boxstyle="round,pad=0.5", facecolor="lightgray", alpha=0.5))
+        # Add compact legend at the bottom
+        legend_elements = []
+        for i in range(len(self.traced_paths)):
+            color = self.colors[i % len(self.colors)]
+            legend_elements.append(plt.Line2D([0], [0], color=color, lw=4, label=f'Line {i+1}'))
+        
+        # Add start/end markers to legend
+        legend_elements.append(plt.Line2D([0], [0], marker='o', color='w', markerfacecolor='gray', 
+                                        markersize=10, markeredgecolor='black', markeredgewidth=2, 
+                                        label='Start', linestyle='None'))
+        legend_elements.append(plt.Line2D([0], [0], marker='s', color='w', markerfacecolor='gray', 
+                                        markersize=10, markeredgecolor='black', markeredgewidth=2, 
+                                        label='End', linestyle='None'))
+        
+        ax.legend(handles=legend_elements, loc='upper center', bbox_to_anchor=(0.5, -0.05), 
+                 ncol=min(6, len(legend_elements)), fontsize=10)
 
         # Add click handler for station information
         fig.canvas.mpl_connect('button_press_event', self.on_click)
 
         plt.tight_layout()
         plt.show()
-
-    def toggle_line(self, label):
-        """Toggle visibility of metro lines"""
-        line_num = int(label.split()[-1]) - 1
-
-        # Toggle line visibility
-        self.line_objects[line_num].set_visible(not self.line_objects[line_num].get_visible())
-        self.start_objects[line_num].set_visible(not self.start_objects[line_num].get_visible())
-        self.end_objects[line_num].set_visible(not self.end_objects[line_num].get_visible())
-        self.station_objects[line_num].set_visible(not self.station_objects[line_num].get_visible())
-
-        plt.draw()
 
     def on_click(self, event):
         """Handle click events on the plot"""
@@ -227,30 +213,13 @@ class MetroVisualizer:
             if station_info:
                 info = f"Station at ({x}, {y}):\n" + "\n".join(station_info)
                 print(info)
-                plt.title(f'Metro Line Visualizer - Station Info: ({x}, {y})', 
-                         fontsize=14, fontweight='bold')
+                # Update title with station info
+                ax = event.inaxes
+                ax.set_title(f'Metro Line Visualizer - {self.width}×{self.height} City Grid | '
+                           f'Max Turns: {self.max_turns} | Lines: {self.num_lines} | '
+                           f'Station: ({x}, {y})', 
+                           fontsize=14, fontweight='bold')
                 plt.draw()
-
-    def get_info_text(self):
-        """Generate information text for the visualization"""
-        info = f"City Information:\n"
-        info += f"• Dimensions: {self.width} × {self.height}\n"
-        info += f"• Max Turns: {self.max_turns}\n"
-        info += f"• Metro Lines: {self.num_lines}\n\n"
-
-        info += "Line Details:\n"
-        for i, (path, directions) in enumerate(zip(self.traced_paths, self.metro_paths)):
-            turns = self.count_turns(directions)
-            start, end = path[0], path[-1]
-            info += f"• Line {i+1}: {start} → {end}\n"
-            info += f"  Turns: {turns}/{self.max_turns}\n"
-
-        info += "\nInstructions:\n"
-        info += "• Click checkboxes to toggle lines\n"
-        info += "• Click stations for details\n"
-        info += "• Circles = Start, Squares = End"
-
-        return info
 
 
 def main():

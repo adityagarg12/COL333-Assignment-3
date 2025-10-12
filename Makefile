@@ -40,6 +40,23 @@ $(SAT_SOLVER_BIN): $(SAT_SOLVER_SRC)
 $(SOLUTION_DECODER_BIN): $(SOLUTION_DECODER_SRC)
 	$(CXX) $(CXXFLAGS) -o $@ $< $(LDFLAGS)
 
+
+visualize:
+	@if [ -z "$(FILE)" ]; then echo "Usage: make visualize FILE=<basename>"; exit 1; fi
+	@if [ ! -f "$(FILE).city" ]; then echo "File $(FILE).city not found"; exit 1; fi
+	@if [ ! -f "$(FILE).metromap" ]; then echo "File $(FILE).metromap not found"; exit 1; fi
+	@if [ ! -f "metro_visualizer.py" ]; then echo "metro_visualizer.py not found"; exit 1; fi
+	python3 metro_visualizer.py "$(FILE).city" "$(FILE).metromap"
+
+.PHONY: visualize
+
+# Run SAT solver (GPT), minisat, and solution decoder on a sample basename
+run_gpt:
+	@if [ -z "$(FILE)" ]; then echo "Usage: make run_gpt FILE=<basename>"; exit 1; fi
+	@./sat_solver_gpt sample/$(FILE).city && (minisat sample/$(FILE).satinput sample/$(FILE).satoutput || true) && ./solution_decoder_gpt sample/$(FILE)
+	@python3 metro_visualizer.py sample/$(FILE).city sample/$(FILE).metromap
+.PHONY: run_gpt
+
 # Clean built files
 clean:
 	rm -f $(SAT_SOLVER_BIN) $(SOLUTION_DECODER_BIN) $(SAT_SOLVER_GPT_BIN) $(SOLUTION_DECODER_GPT_BIN)
@@ -60,6 +77,8 @@ debug: all
 
 # Force rebuild
 rebuild: clean all
+
+
 
 # Display help
 help:
