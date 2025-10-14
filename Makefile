@@ -75,7 +75,7 @@ run_modified: $(SAT_SOLVER_NEW_BIN) $(SOLUTION_DECODER_NEW_BIN)
 
 # Clean built files
 clean:
-	rm -f $(SAT_SOLVER_BIN) $(SOLUTION_DECODER_BIN) $(SAT_SOLVER_GPT_BIN) $(SOLUTION_DECODER_GPT_BIN)
+	rm -f $(SAT_SOLVER_BIN) $(SOLUTION_DECODER_BIN) $(SAT_SOLVER_GPT_BIN) $(SOLUTION_DECODER_GPT_BIN) $(SAT_SOLVER_NEW_BIN) $(SOLUTION_DECODER_NEW_BIN)
 
 # Install (copy to /usr/local/bin - requires sudo)
 install: all
