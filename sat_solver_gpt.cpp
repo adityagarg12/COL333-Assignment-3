@@ -38,6 +38,20 @@ struct CNF {
     }
 };
 
+
+// Helper function remains the same
+int min_turns(pair<int, int> p1, pair<int, int> p2) {
+    if (p1.first == p2.first || p1.second == p2.second) {
+        return 0;
+    }
+    return 1;
+}
+
+// Helper for sgn function (sign of a number)
+int sgn(int val) {
+    return (0 < val) - (val < 0);
+}
+
 // ---------- Sinz sequential counter (at-most-k) ----------
 // Enforces: sum(a_1..a_n) <= K.
 // Returns vector of created aux var names (for debugging if needed).
@@ -255,13 +269,75 @@ int main(int argc,char**argv){
     for(int k=0;k<K;k++){
         auto s = starts[k];
         auto e = ends[k];
-        // Ensure start & end cells are occupied
+        // Ensure start & end cells are occupied by this metro
         cnf.add_clause(vector<int>{ cnf.getid(occ_name(k,s.first,s.second))});
         cnf.add_clause(vector<int>{ cnf.getid(occ_name(k,e.first,e.second))});
+        
+        // OPTIMIZATION: Explicitly forbid other metros from occupying this metro's start/end cells
+        if (K > 1) {
+            for(int other_k = 0; other_k < K; ++other_k) {
+                if (other_k != k) {
+                    // Forbid other metros from start cell
+                    cnf.add_clause(vector<int>{ -cnf.getid(occ_name(other_k, s.first, s.second)) });
+                    // Forbid other metros from end cell
+                    cnf.add_clause(vector<int>{ -cnf.getid(occ_name(other_k, e.first, e.second)) });
+                }
+            }
+        }
 
         for(int x=0;x<N;x++){
             for(int y=0;y<M;y++){
                 int occ = cnf.getid(occ_name(k,x,y));
+                pair<int, int> c = {x, y};
+
+                // --- NEW, STRONGER REACHABILITY CHECK ---
+                int h_segments = 0;
+                if (s.first != c.first || e.first != c.first) { // Needs horizontal movement
+                    h_segments = 1;
+                    // Check for horizontal double-back
+                    if (sgn(c.first - s.first) * sgn(e.first - c.first) == -1) {
+                        h_segments = 2;
+                    }
+                }
+
+                int v_segments = 0;
+                if (s.second != c.second || e.second != c.second) { // Needs vertical movement
+                    v_segments = 1;
+                    // Check for vertical double-back
+                    if (sgn(c.second - s.second) * sgn(e.second - c.second) == -1) {
+                        v_segments = 2;
+                    }
+                }
+
+                // A path is an alternating sequence of H and V segments.
+                // Turns happen at the transition between segments.
+                // E.g., H-V-H-V requires 3 turns.
+                int lower_bound_turns = 0;
+                if (h_segments == 0 && v_segments == 0) {
+                    // No movement needed (start == current == end) - should not happen in practice
+                    lower_bound_turns = 0;
+                } else if (h_segments == 0 || v_segments == 0) {
+                    // Pure horizontal or pure vertical movement - no turns needed
+                    lower_bound_turns = 0;
+                } else {
+                    // Both horizontal and vertical movement required
+                    // Formula: h_segments + v_segments - 1 gives the minimum turns
+                    // for alternating H-V-H-V... pattern
+                    lower_bound_turns = h_segments + v_segments - 1;
+                    
+                    // Special case: when both h_segments=2 and v_segments=2,
+                    // the minimum is actually 3 turns (e.g., H-V-H-V pattern)
+                    // But our formula gives 2+2-1=3, which is already correct!
+                    // So no special case needed.
+                }
+
+
+                if (lower_bound_turns > J) {
+                    int occ_var = cnf.getid(occ_name(k, x, y));
+                    cnf.add_clause(-occ_var);
+                    continue; 
+                }
+
                 // collect outgoing edges from (x,y)
                 vector<int> out_edges;
                 vector<int> in_edges;
@@ -278,6 +354,16 @@ int main(int argc,char**argv){
                 bool is_start = (x==s.first && y==s.second);
                 bool is_end = (x==e.first && y==e.second);
 
+                // Early check: if this is neither start nor end, and has insufficient neighbors for a path
+                if (!is_start && !is_end && (in_edges.size() < 2 && out_edges.size() < 2)) {
+                    // Interior cells need at least 2 connections to form a path through them
+                    // If this cell has only 1 neighbor total, it can't be part of an interior path
+                    if (in_edges.size() + out_edges.size() < 2) {
+                        cnf.add_clause(vector<int>{ -occ });
+                        continue;
+                    }
+                }
+
                 if(is_start && is_end){
                     // degenerate case start==end (but spec forbids). We'll still be safe:
                     // require occ true, no incoming, no outgoing.
@@ -287,10 +373,10 @@ int main(int argc,char**argv){
                 }
 
                 if(is_start){
-                    // start: indegree 0
+                    // start: indegree 0, exactly one outgoing
                     for(int v: in_edges) cnf.add_clause(vector<int>{ -v });
-                    // occ -> at least one outgoing
                     if(!out_edges.empty()){
+                        // occ -> exactly one outgoing (combined constraint)
                         vector<int> clause; clause.push_back(-occ);
                         for(int v: out_edges) clause.push_back(v);
                         cnf.add_clause(clause);
@@ -299,15 +385,13 @@ int main(int argc,char**argv){
                             for(size_t j=i+1;j<out_edges.size();++j)
                                 cnf.add_clause(vector<int>{ -out_edges[i], -out_edges[j] });
                     } else {
-                        // No outgoing neighbors -> impossible (unless start==end handled above)
-                        // Make formula unsat by adding empty clause
                         cnf.add_clause(vector<int>{});
                     }
                 } else if(is_end){
-                    // end: outdegree 0
+                    // end: outdegree 0, exactly one incoming
                     for(int v: out_edges) cnf.add_clause(vector<int>{ -v });
-                    // occ -> at least one incoming
                     if(!in_edges.empty()){
+                        // occ -> exactly one incoming (combined constraint)
                         vector<int> clause; clause.push_back(-occ);
                         for(int v: in_edges) clause.push_back(v);
                         cnf.add_clause(clause);
@@ -346,17 +430,42 @@ int main(int argc,char**argv){
     }
 
     // 3) If a cell is occupied, it must be occupied by at most one metro (global uniqueness)
-    for(int x=0;x<N;x++){
-        for(int y=0;y<M;y++){
-            for(int k1=0;k1<K;k1++){
-                int v1 = cnf.getid(occ_name(k1,x,y));
-                for(int k2=k1+1;k2<K;k2++){
-                    int v2 = cnf.getid(occ_name(k2,x,y));
-                    cnf.add_clause(vector<int>{ -v1, -v2 });
+    // for(int x=0;x<N;x++){
+    //     for(int y=0;y<M;y++){
+    //         for(int k1=0;k1<K;k1++){
+    //             int v1 = cnf.getid(occ_name(k1,x,y));
+    //             for(int k2=k1+1;k2<K;k2++){
+    //                 int v2 = cnf.getid(occ_name(k2,x,y));
+    //                 cnf.add_clause(vector<int>{ -v1, -v2 });
+    //             }
+    //         }
+    //     }
+    // }
+
+    cout << "debug --- IGNORE ---\n";
+
+    for (int x = 0; x < N; ++x) {
+        for (int y = 0; y < M; ++y) {
+            // If there's more than one metro, we need to add a constraint.
+            if (K > 1) {
+                // Collect all occupancy variables for this specific cell (x,y).
+                vector<int> occ_vars_for_cell;
+                for (int k = 0; k < K; ++k) {
+                    occ_vars_for_cell.push_back(cnf.getid(occ_name(k, x, y)));
+                }
+
+                // Use pairwise constraints instead of Sinz for better Lit/Cl ratio
+                for(size_t i = 0; i < occ_vars_for_cell.size(); ++i) {
+                    for(size_t j = i + 1; j < occ_vars_for_cell.size(); ++j) {
+                        cnf.add_clause(vector<int>{ -occ_vars_for_cell[i], -occ_vars_for_cell[j] });
+                    }
                 }
             }
         }
     }
+
+
+    cout << "debug2 --- IGNORE ---\n";
 
     // 4) Edges must form connected path: ensure no disjoint cycles -> the degree constraints above + unique start/end ensure simple path
     // The constraints so far imply each occ cell (except endpoints) has indeg=outdeg=1; start has outdeg=1 indeg=0; end has indeg=1 outdeg=0.
@@ -419,6 +528,8 @@ int main(int argc,char**argv){
             }
         }
 
+        
+
         // 6) Enforce at-most-J turns for this metro using Sinz encoding
         if(!t_vars_for_metro.empty()){
             // apply at-most-J on t_vars_for_metro
@@ -428,6 +539,7 @@ int main(int argc,char**argv){
         }
     }
 
+    cout << "debug3 --- IGNORE ---\n";
     // 7) Popular cells (scenario 2)
     if(scenario==2){
         for(auto &p : popular){

@@ -131,6 +131,18 @@ int main(int argc, char** argv) {
         // Ensure start & end cells are occupied
         getid(occ_name(k,s.x,s.y));  // cnf.getid(occ_name(k,s.first,s.second))
         getid(occ_name(k,e.x,e.y));  // cnf.getid(occ_name(k,e.first,e.second))
+        
+        // OPTIMIZATION: Explicitly forbid other metros from occupying this metro's start/end cells
+        if (K > 1) {
+            for(int other_k = 0; other_k < K; ++other_k) {
+                if (other_k != k) {
+                    // Forbid other metros from start cell
+                    getid(occ_name(other_k, s.x, s.y));  // cnf.getid(occ_name(other_k, s.first, s.second))
+                    // Forbid other metros from end cell
+                    getid(occ_name(other_k, e.x, e.y));  // cnf.getid(occ_name(other_k, e.first, e.second))
+                }
+            }
+        }
 
         for(int x=0;x<N;x++){
             for(int y=0;y<M;y++){
@@ -147,15 +159,19 @@ int main(int argc, char** argv) {
         }
     }
 
-    // STEP 3: Replicate uniqueness constraint loop (lines 284-292)
-    // 3) If a cell is occupied, it must be occupied by at most one metro
-    for(int x=0;x<N;x++){
-        for(int y=0;y<M;y++){
-            for(int k1=0;k1<K;k1++){
-                getid(occ_name(k1,x,y));  // int v1 = cnf.getid(occ_name(k1,x,y));
-                for(int k2=k1+1;k2<K;k2++){
-                    getid(occ_name(k2,x,y));  // int v2 = cnf.getid(occ_name(k2,x,y));
+    // STEP 3: Replicate uniqueness constraint loop (matches SAT solver's pairwise encoding)
+    // 3) If a cell is occupied, it must be occupied by at most one metro using pairwise constraints
+    for (int x = 0; x < N; ++x) {
+        for (int y = 0; y < M; ++y) {
+            // If there's more than one metro, we need to add a constraint.
+            if (K > 1) {
+                // Collect all occupancy variables for this specific cell (x,y).
+                for (int k = 0; k < K; ++k) {
+                    getid(occ_name(k, x, y));  // cnf.getid(occ_name(k, x, y))
                 }
+                
+                // NOTE: Pairwise constraints don't create auxiliary variables,
+                // so no additional variable generation needed here
             }
         }
     }
@@ -195,9 +211,9 @@ int main(int argc, char** argv) {
         if(!t_vars_for_metro.empty()){
             int n = (int)t_vars_for_metro.size();
             if(J < n && J >= 0) {  // Only create Sinz vars if needed
-                // Create Sinz auxiliary variables: s[i][j] with i in [1..n-1], j in [1..J]
+                // Create Sinz auxiliary variables: s[i][j] with i in [0..n-1], j in [1..J]
                 string aux_prefix = string("sinz_k_") + to_string(k);
-                for (int i = 1; i <= n-1; ++i) {
+                for (int i = 0; i < n; ++i) {
                     for (int j = 1; j <= J; ++j) {
                         string key = aux_prefix + "_s_" + to_string(i) + "_" + to_string(j);
                         getid(key);  // s[i][j] = cnf.getid(key);

@@ -34,9 +34,15 @@ class MetroVisualizer:
             with open(filename, 'r') as f:
                 lines = f.read().strip().split('\n')
 
-            test_cases = int(lines[0])
+            scenario = int(lines[0])
             city_info = list(map(int, lines[1].split()))
-            self.width, self.height, self.num_lines, self.max_turns = city_info
+            
+            if scenario == 1:
+                # Scenario 1: width, height, num_lines, max_turns
+                self.width, self.height, self.num_lines, self.max_turns = city_info
+            else:
+                # Scenario 2: width, height, num_lines, max_turns, num_popular_points
+                self.width, self.height, self.num_lines, self.max_turns, self.num_popular_points = city_info
 
             # Parse metro line endpoints
             for i in range(2, 2 + self.num_lines):

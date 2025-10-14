@@ -51,7 +51,7 @@ visualize:
 .PHONY: visualize
 
 # Run SAT solver (GPT), minisat, and solution decoder on a sample basename
-run_gpt:
+run_gpt: $(SAT_SOLVER_GPT_BIN) $(SOLUTION_DECODER_GPT_BIN)
 	@if [ -z "$(FILE)" ]; then echo "Usage: make run_gpt FILE=<basename>"; exit 1; fi
 	@./sat_solver_gpt sample/$(FILE).city && (minisat sample/$(FILE).satinput sample/$(FILE).satoutput || true) && ./solution_decoder_gpt sample/$(FILE)
 	@python3 metro_visualizer.py sample/$(FILE).city sample/$(FILE).metromap
