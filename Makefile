@@ -13,6 +13,10 @@ SAT_SOLVER_GPT_SRC = sat_solver_gpt.cpp
 SAT_SOLVER_GPT_BIN = sat_solver_gpt
 SOLUTION_DECODER_GPT_SRC = solution_decoder_gpt.cpp
 SOLUTION_DECODER_GPT_BIN = solution_decoder_gpt
+SOLUTION_DECODER_NEW_SRC = solution_decoder_new.cpp
+SOLUTION_DECODER_NEW_BIN = solution_decoder_new
+SAT_SOLVER_NEW_SRC = sat_solver_new.cpp
+SAT_SOLVER_NEW_BIN = sat_solver_new
 
 
 # Executable names
@@ -40,6 +44,11 @@ $(SAT_SOLVER_BIN): $(SAT_SOLVER_SRC)
 $(SOLUTION_DECODER_BIN): $(SOLUTION_DECODER_SRC)
 	$(CXX) $(CXXFLAGS) -o $@ $< $(LDFLAGS)
 
+$(SOLUTION_DECODER_NEW_BIN): $(SOLUTION_DECODER_NEW_SRC)
+	$(CXX) $(CXXFLAGS) -o $@ $< $(LDFLAGS)
+
+$(SAT_SOLVER_NEW_BIN): $(SAT_SOLVER_NEW_SRC)
+	$(CXX) $(CXXFLAGS) -o $@ $< $(LDFLAGS)
 
 visualize:
 	@if [ -z "$(FILE)" ]; then echo "Usage: make visualize FILE=<basename>"; exit 1; fi
@@ -54,6 +63,13 @@ visualize:
 run_gpt: $(SAT_SOLVER_GPT_BIN) $(SOLUTION_DECODER_GPT_BIN)
 	@if [ -z "$(FILE)" ]; then echo "Usage: make run_gpt FILE=<basename>"; exit 1; fi
 	@./sat_solver_gpt sample/$(FILE).city && (minisat sample/$(FILE).satinput sample/$(FILE).satoutput || true) && ./solution_decoder_gpt sample/$(FILE)
+	@python3 metro_visualizer.py sample/$(FILE).city sample/$(FILE).metromap
+.PHONY: run_gpt
+
+
+run_modified: $(SAT_SOLVER_NEW_BIN) $(SOLUTION_DECODER_NEW_BIN)
+	@if [ -z "$(FILE)" ]; then echo "Usage: make run_gpt FILE=<basename>"; exit 1; fi
+	@./sat_solver_new sample/$(FILE).city && (minisat sample/$(FILE).satinput sample/$(FILE).satoutput || true) && ./solution_decoder_new sample/$(FILE)
 	@python3 metro_visualizer.py sample/$(FILE).city sample/$(FILE).metromap
 .PHONY: run_gpt
 
